@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark h5,
+html.dark h6,
+html.dark p,
+html.dark span,
+html.dark a,
+html.dark li,
+html.dark label,
+html.dark td,
+html.dark th,
+html.dark div,
+html.dark button,
+html.dark small,
+html.dark strong {
+	color: rgba(255,255,255,0.95) !important;
+}
+
+/* Make table text clearly visible in dark mode */
+html.dark table {
+	color: rgba(255,255,255,0.9) !important;
+}
+
+
+html.dark select,
+html.dark select option {
+	background-color: #0f1724; /* near-gray-900 */
+	color: rgba(255,255,255,0.95);
+}
+
+/* For WebKit browsers, try to darken the dropdown arrow background too. */
+html.dark select::-ms-expand {
+	background-color: transparent;
+}
+
+/* Login animations */
+@keyframes fade-in-up {
+	from { opacity: 0; transform: translateY(8px); }
+	to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes float-slight {
+	0% { transform: translateY(0); }
+	50% { transform: translateY(-4px); }
+	100% { transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+	animation: fade-in-up 480ms cubic-bezier(.2,.9,.2,1) both;
+}
+
+.animate-float-slight {
+	animation: float-slight 4s ease-in-out infinite;
+}
+
+/* small utility to hide native scrollbars when using overflow-x-auto */
+.no-scrollbar {
+	-ms-overflow-style: none; /* IE and Edge */
+	scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+	display: none; /* Chrome, Safari, Opera */
+}
+
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
