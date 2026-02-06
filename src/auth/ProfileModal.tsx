@@ -12,11 +12,11 @@ type Props = {
 const ProfileModal: React.FC<Props> = ({ open, onClose }) => {
   const { user, updateProfile } = useAuth();
 
-  const [email, setEmail] = useState<string>(() => user?.email ?? "");
+  const [email, setEmail] = useState<string>(() => user?.adminData.email ?? "");
 
   const handleCancel = () => {
     // Reset back to the latest user email when closing
-    setEmail(user?.email ?? "");
+    setEmail(user?.adminData.email ?? "");
     onClose();
   };
 

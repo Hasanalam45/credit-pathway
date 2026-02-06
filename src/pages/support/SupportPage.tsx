@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState } from "react";
 import PageHeader from "../../components/shared/layout/PageHeader";
 import SupportTicketsTable, {
   type SupportTicket,
@@ -13,7 +13,6 @@ import { useSupportTickets } from "../../hooks/useSupportTickets";
 import {
   createSupportTicket,
   updateTicketMetadata,
-  sendAdminReply,
 } from "../../services/supportTicketsService";
 
 const SupportPage: React.FC = () => {
@@ -79,10 +78,10 @@ const SupportPage: React.FC = () => {
         adminNote?: string;
       } = {};
       
-      if (vals.status !== undefined && vals.status !== editing.status) {
+      if (vals.status !== undefined && vals.status !== null && vals.status !== editing.status) {
         metadataUpdates.status = vals.status;
       }
-      if (vals.priority !== undefined && vals.priority !== editing.priority) {
+      if (vals.priority !== undefined && vals.priority !== null && vals.priority !== editing.priority) {
         metadataUpdates.priority = vals.priority;
       }
       if (vals.assignedTo !== undefined && vals.assignedTo !== editing.assignedTo) {
