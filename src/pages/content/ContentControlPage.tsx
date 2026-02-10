@@ -16,7 +16,7 @@ import NewLessonModal, {
 } from "../../components/content/NewLessonModal";
 import { useArticles } from "../../hooks/useArticles";
 import { useEducationContent } from "../../hooks/useEducationContent";
-import { createArticle, updateArticle, deleteArticle } from "../../services/articlesService";
+import { createArticle, updateArticle, deleteArticle, getArticleById } from "../../services/articlesService";
 import { createEducationContent, updateEducationContent, deleteEducationContent } from "../../services/educationContentService";
 
 const ContentManagementPage: React.FC = () => {
@@ -36,6 +36,8 @@ const ContentManagementPage: React.FC = () => {
   const [lessonModalOpen, setLessonModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<ContentItem | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingArticleData, setEditingArticleData] = useState<NewArticleValues | null>(null);
+  const [loadingArticleData, setLoadingArticleData] = useState(false);
 
   // Combine Firebase articles, videos with other items
   const allItems = useMemo(() => {
@@ -126,14 +128,47 @@ const ContentManagementPage: React.FC = () => {
     }
   };
 
-  const handleEditRequest = (item: ContentItem) => {
+  const handleEditRequest = async (item: ContentItem) => {
     setEditingItem(item);
+    
+    // If it's an article, fetch the full article data including content
+    if (item.kind === "article") {
+      setLoadingArticleData(true);
+      try {
+        const articleData = await getArticleById(item.id);
+        if (articleData) {
+          setEditingArticleData(articleData);
+        } else {
+          // Fallback to basic data if fetch fails
+          setEditingArticleData({
+            title: item.title,
+            category: item.category,
+            content: "",
+            visibility: item.visibility,
+            tier: item.tier,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching article data:", error);
+        // Fallback to basic data
+        setEditingArticleData({
+          title: item.title,
+          category: item.category,
+          content: "",
+          visibility: item.visibility,
+          tier: item.tier,
+        });
+      } finally {
+        setLoadingArticleData(false);
+      }
+    }
+    
     setEditModalOpen(true);
   };
 
   const handleUpdate = async (
     id: string,
-    values: { title: string; category: string; visibility: Visibility; tier: MembershipTier }
+    values: { title: string; category: string; content: string; visibility: Visibility; tier: MembershipTier }
   ) => {
     // Check if it's an article or video (from Firebase) or other item
     const isArticle = articles.some((item) => item.id === id);
@@ -162,6 +197,7 @@ const ContentManagementPage: React.FC = () => {
       }
       
       setEditingItem(null);
+      setEditingArticleData(null);
       setEditModalOpen(false);
     } catch (error: any) {
       console.error("Error updating item:", error);
@@ -195,6 +231,7 @@ const ContentManagementPage: React.FC = () => {
       
       if (editingItem && editingItem.id === id) {
         setEditingItem(null);
+        setEditingArticleData(null);
         setEditModalOpen(false);
       }
     } catch (error: any) {
@@ -284,11 +321,13 @@ const ContentManagementPage: React.FC = () => {
           open={editModalOpen}
           onClose={() => {
             setEditingItem(null);
+            setEditingArticleData(null);
             setEditModalOpen(false);
           }}
-          initialValues={{
+          initialValues={editingArticleData || {
             title: editingItem.title,
             category: editingItem.category,
+            content: "",
             visibility: editingItem.visibility,
             tier: editingItem.tier,
           }}

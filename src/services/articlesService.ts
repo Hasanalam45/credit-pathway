@@ -8,6 +8,7 @@
 import {
   collection,
   getDocs,
+  getDoc,
   QueryDocumentSnapshot,
   orderBy,
   query,
@@ -118,6 +119,7 @@ export const getArticles = async (): Promise<ContentItem[]> => {
 export const createArticle = async (values: {
   title: string;
   category: string;
+  content: string;
   visibility: Visibility;
   tier: MembershipTier;
 }): Promise<string> => {
@@ -132,11 +134,12 @@ export const createArticle = async (values: {
       visibility: values.visibility,
       tier: values.tier,
       createdAt: Timestamp.now(),
+      // Save content as body field for consistency with Flutter app
+      body: values.content.trim() || "",
       // Optional fields with defaults
       thumbnailUrl: null,
       readTimeMinutes: null,
       summary: "",
-      body: "",
       sections: [], // Empty sections array (required field)
     };
     
@@ -159,6 +162,7 @@ export const updateArticle = async (
   values: {
     title: string;
     category: string;
+    content: string;
     visibility: Visibility;
     tier: MembershipTier;
   }
@@ -172,6 +176,8 @@ export const updateArticle = async (
       category: values.category.trim(),
       visibility: values.visibility,
       tier: values.tier,
+      // Save content as body field for consistency with Flutter app
+      body: values.content.trim() || "",
       updatedAt: Timestamp.now(), // Add updatedAt timestamp
     };
     
@@ -180,6 +186,42 @@ export const updateArticle = async (
     console.log("Article updated successfully:", id);
   } catch (error) {
     console.error("Error updating article:", error);
+    throw error;
+  }
+};
+
+/**
+ * Get a single article by ID with full content
+ */
+export const getArticleById = async (id: string): Promise<{
+  id: string;
+  title: string;
+  category: string;
+  content: string;
+  visibility: Visibility;
+  tier: MembershipTier;
+} | null> => {
+  try {
+    const articleRef = doc(firestore, "articles", id);
+    const articleSnap = await getDoc(articleRef);
+    
+    if (!articleSnap.exists()) {
+      return null;
+    }
+    
+    const data = articleSnap.data();
+    
+    return {
+      id: articleSnap.id,
+      title: data.title || "Untitled Article",
+      category: data.category || "General",
+      content: data.body || "", // Map body field to content
+      visibility: data.visibility === "hidden" ? "hidden" : "visible",
+      tier: data.tier === "paid" ? "paid" : 
+            data.tier === "vip" ? "vip" : "free",
+    };
+  } catch (error) {
+    console.error("Error getting article by ID:", error);
     throw error;
   }
 };

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Modal from "../shared/overlay/Modal";
 import TextInput from "../shared/inputs/TextInput";
+import Textarea from "../shared/inputs/Textarea";
 import SelectFilter from "../shared/inputs/SelectFilter";
 import Button from "../shared/buttons/Button";
 import type { MembershipTier, Visibility } from "./ContentTable";
@@ -8,6 +9,7 @@ import type { MembershipTier, Visibility } from "./ContentTable";
 export type NewArticleValues = {
   title: string;
   category: string;
+  content: string;
   visibility: Visibility;
   tier: MembershipTier;
 };
@@ -31,6 +33,7 @@ const NewArticleModal: React.FC<Props> = ({
 }) => {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
+  const [content, setContent] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("visible");
   const [tier, setTier] = useState<MembershipTier>("free");
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +42,7 @@ const NewArticleModal: React.FC<Props> = ({
   const reset = () => {
     setTitle("");
     setCategory("");
+    setContent("");
     setVisibility("visible");
     setTier("free");
     setError(null);
@@ -48,6 +52,7 @@ const NewArticleModal: React.FC<Props> = ({
     if (open && initialValues) {
       setTitle(initialValues.title);
       setCategory(initialValues.category);
+      setContent(initialValues.content || "");
       setVisibility(initialValues.visibility);
       setTier(initialValues.tier);
       setError(null);
@@ -68,6 +73,7 @@ const NewArticleModal: React.FC<Props> = ({
     const payload = {
       title: title.trim(),
       category: category.trim(),
+      content: content.trim(),
       visibility,
       tier,
     };
@@ -136,6 +142,14 @@ const NewArticleModal: React.FC<Props> = ({
           placeholder="e.g. Credit Health"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
+        />
+
+        <Textarea
+          label="Content"
+          placeholder="Enter the article content here..."
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          rows={8}
         />
 
         <div className="grid gap-4 sm:grid-cols-2">
