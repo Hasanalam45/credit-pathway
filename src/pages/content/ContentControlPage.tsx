@@ -37,7 +37,6 @@ const ContentManagementPage: React.FC = () => {
   const [editingItem, setEditingItem] = useState<ContentItem | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingArticleData, setEditingArticleData] = useState<NewArticleValues | null>(null);
-  const [loadingArticleData, setLoadingArticleData] = useState(false);
 
   // Combine Firebase articles, videos with other items
   const allItems = useMemo(() => {
@@ -133,7 +132,6 @@ const ContentManagementPage: React.FC = () => {
     
     // If it's an article, fetch the full article data including content
     if (item.kind === "article") {
-      setLoadingArticleData(true);
       try {
         const articleData = await getArticleById(item.id);
         if (articleData) {
@@ -158,8 +156,6 @@ const ContentManagementPage: React.FC = () => {
           visibility: item.visibility,
           tier: item.tier,
         });
-      } finally {
-        setLoadingArticleData(false);
       }
     }
     
@@ -168,7 +164,7 @@ const ContentManagementPage: React.FC = () => {
 
   const handleUpdate = async (
     id: string,
-    values: { title: string; category: string; content: string; visibility: Visibility; tier: MembershipTier }
+    values: { title: string; category: string; content?: string; visibility: Visibility; tier: MembershipTier }
   ) => {
     // Check if it's an article or video (from Firebase) or other item
     const isArticle = articles.some((item) => item.id === id);
@@ -176,13 +172,26 @@ const ContentManagementPage: React.FC = () => {
     
     try {
       if (isArticle) {
-        // Update article in Firestore
-        await updateArticle(id, values);
+        // Update article in Firestore (content is required for articles)
+        if (values.content !== undefined) {
+          await updateArticle(id, {
+            title: values.title,
+            category: values.category,
+            content: values.content,
+            visibility: values.visibility,
+            tier: values.tier,
+          });
+        }
         // Refetch articles to update the list
         await refetchArticles();
       } else if (isVideo) {
-        // Update video in Firestore
-        await updateEducationContent(id, values);
+        // Update video in Firestore (no content field)
+        await updateEducationContent(id, {
+          title: values.title,
+          category: values.category,
+          visibility: values.visibility,
+          tier: values.tier,
+        });
         // Refetch videos to update the list
         await refetchVideos();
       } else {
