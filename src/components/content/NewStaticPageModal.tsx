@@ -180,7 +180,7 @@ const NewStaticPageModal: React.FC<Props> = ({
           placeholder="about-us"
           value={slug}
           onChange={(e) => setSlug(e.target.value)}
-          helperText="URL-friendly identifier (lowercase, hyphens only)"
+          hint="URL-friendly identifier (lowercase, hyphens only)"
         />
 
         <TextInput
