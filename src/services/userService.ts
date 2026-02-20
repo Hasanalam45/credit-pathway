@@ -14,6 +14,7 @@ import type { DocumentData } from "firebase/firestore";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { firestore, auth } from "../config/firebase";
 import type { User, UserTier, UserStatus, SortBy } from "../components/users/UserTable";
+import { createAdminNotification } from "./notificationService";
 
 /**
  * Map Firestore tier values to frontend UserTier
@@ -300,6 +301,21 @@ export const createUser = async (userData: CreateUserData): Promise<string> => {
     });
 
     console.log("User created successfully:", uid);
+    
+    // Create admin notification for new user registration
+    try {
+      await createAdminNotification({
+        type: "newUserRegistration",
+        title: "New User Registration",
+        message: `${userData.name} (${userData.email}) registered as ${userData.tier} member`,
+        userId: uid,
+        actionUrl: `/users?id=${uid}`,
+      });
+    } catch (notifError) {
+      console.error("Error creating notification:", notifError);
+      // Don't fail user creation if notification fails
+    }
+    
     return uid;
   } catch (error: any) {
     console.error("Error creating user:", error);

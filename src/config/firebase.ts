@@ -7,6 +7,8 @@ import { getFunctions } from "firebase/functions";
 import type { Functions } from "firebase/functions";
 import { getFirestore } from "firebase/firestore";
 import type { Firestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
+import type { FirebaseStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -29,14 +31,12 @@ if (getApps().length === 0) {
 
 // Initialize Firebase Services
 export const auth: Auth = getAuth(app);
-export const functions: Functions = getFunctions(app, "us-central1"); // Your functions are in us-central1
+export const functions: Functions = getFunctions(app, "us-central1"); // Explicitly set region for v2 functions
 export const firestore: Firestore = getFirestore(app);
+export const storage: FirebaseStorage = getStorage(app);
 
-// Test: Log Firebase initialization (remove this after testing)
-// console.log("✅ Firebase initialized successfully!", {
-//   projectId: firebaseConfig.projectId,
-//   authDomain: firebaseConfig.authDomain,
-// });
+// Functions are configured for us-central1 (see getFunctions(app, "us-central1"))
+// The functions are deployed in us-central1 region
 
 // Optional: Connect to emulators in development (uncomment if using Firebase emulators)
 // if (import.meta.env.DEV) {

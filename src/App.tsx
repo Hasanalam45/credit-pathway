@@ -11,6 +11,7 @@ import ContentControlPage from "./pages/content/ContentControlPage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import HelpPage from "./pages/help/HelpPage";
 import SupportPage from "./pages/support/SupportPage";
+import NotificationsPage from "./pages/notifications/NotificationsPage";
 import RequireRole from "./auth/RequireRole";
 
 const App: React.FC = () => {
@@ -29,6 +30,7 @@ const App: React.FC = () => {
           <Route path="settings" element={<RequireRole allowed={["superadmin"]}><SettingsPage /></RequireRole>} />
           <Route path="help" element={<RequireRole allowed={["superadmin"]}><HelpPage /></RequireRole>} />
           <Route path="support" element={<RequireRole allowed={["superadmin","support"]}><SupportPage /></RequireRole>} />
+          <Route path="notifications" element={<NotificationsPage />} />
         </Route>
         {/* Fallback for unknown routes: send to dashboard */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

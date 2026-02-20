@@ -1,9 +1,10 @@
 import React from "react";
-import { FiBell, FiUser, FiMenu, FiSun, FiMoon } from "react-icons/fi";
+import { FiUser, FiMenu, FiSun, FiMoon } from "react-icons/fi";
 import useTheme from "../../hooks/useTheme";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import ProfileModal from "../../auth/ProfileModal";
+import NotificationBell from "../notifications/NotificationBell";
 
 interface TopbarProps {
   pageTitle: string;
@@ -58,13 +59,10 @@ const Topbar: React.FC<TopbarProps> = ({ pageTitle, onOpenSidebar }) => {
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Theme toggle */}
         <ThemeToggle />
-        <button
-          type="button"
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm sm:h-10 sm:w-10 dark:bg-gray-800 dark:border-gray-700"
-          aria-label="Notifications"
-        >
-          <FiBell className="h-4 w-4 text-gray-700 dark:text-gray-200 sm:h-5 sm:w-5" />
-        </button>
+        
+        {/* Notification Bell */}
+        <NotificationBell />
+        
         <button
           type="button"
           onClick={handleProfileClick}

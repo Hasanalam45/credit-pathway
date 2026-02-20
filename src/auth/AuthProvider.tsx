@@ -2,8 +2,10 @@ import React from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import type { User as FirebaseUser } from "firebase/auth";
 import { auth } from "../config/firebase";
-import { login as loginService, logout as logoutService, getAdminUserData } from "../services/authService";
-import type { AdminUserData, AdminRole } from "../services/authService";
+import { login as loginService, logout as logoutService, getAdminUserData, updateAdminUserProfile } from "../services/authService";
+import type { AdminUserData } from "../services/authService";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../config/firebase";
 
 /**
  * Combined user type with Firebase User and Admin data
@@ -13,10 +15,23 @@ export type AppUser = {
   adminData: AdminUserData;
 };
 
+/**
+ * Pending 2FA state - user is authenticated but needs to verify OTP
+ */
+export type Pending2FA = {
+  firebaseUser: FirebaseUser;
+  adminData: AdminUserData;
+};
+
 type AuthContextValue = {
   user: AppUser | null;
+  pending2FA: Pending2FA | null;
   loading: boolean;
-  login: (email: string, password: string, role?: AdminRole) => Promise<void>;
+  login: (email: string, password: string) => Promise<AdminUserData>;
+  getUserData: (userId: string) => Promise<AdminUserData | null>;
+  completeLogin: (firebaseUser: FirebaseUser, adminData: AdminUserData) => Promise<void>;
+  completeTwoFactor: (code: string) => Promise<void>;
+  requestTwoFactorCode: () => Promise<{ email: string }>;
   updateProfile: (patch: Partial<AdminUserData>) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -29,79 +44,102 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = React.useState<AppUser | null>(null);
+  const [pending2FA, setPending2FA] = React.useState<Pending2FA | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   // Listen to Firebase Auth state changes
   React.useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // User is signed in, get their admin data
         try {
           const adminData = await getAdminUserData(firebaseUser.uid);
-          
-          // TEMPORARY: If no admin data found, use hardcoded role for testing
           if (!adminData) {
-            console.warn("⚠️ No admin data in Firestore, using hardcoded role for testing");
-            const hardcodedAdminData: AdminUserData = {
-              email: firebaseUser.email || "",
-              role: "superadmin",
-              displayName: firebaseUser.displayName || undefined,
-              isActive: true,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            };
-            setUser({
-              firebaseUser,
-              adminData: hardcodedAdminData,
-            });
-          } else if (adminData.isActive) {
-            setUser({
-              firebaseUser,
-              adminData,
-            });
-          } else {
-            // User exists in Auth but inactive
-            console.warn("User account is inactive:", firebaseUser.uid);
             setUser(null);
+            setPending2FA(null);
             await logoutService();
+          } else if (!adminData.isActive) {
+            setUser(null);
+            setPending2FA(null);
+            await logoutService();
+          } else if (adminData.twoFactor?.enabled && adminData.twoFactor?.method === "email") {
+            setPending2FA({ firebaseUser, adminData });
+            setUser(null);
+          } else {
+            setUser({ firebaseUser, adminData });
+            setPending2FA(null);
           }
         } catch (error) {
           console.error("Error fetching admin user data:", error);
-          // TEMPORARY: On error, use hardcoded role for testing
-          const hardcodedAdminData: AdminUserData = {
-            email: firebaseUser.email || "",
-            role: "superadmin",
-            displayName: firebaseUser.displayName || undefined,
-            isActive: true,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-          setUser({
-            firebaseUser,
-            adminData: hardcodedAdminData,
-          });
+          setUser(null);
+          setPending2FA(null);
+          await logoutService();
         }
       } else {
-        // User is signed out
         setUser(null);
+        setPending2FA(null);
       }
       setLoading(false);
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string, role: AdminRole = "superadmin") => {
+  const login = async (email: string, password: string) => {
+    const { user: firebaseUser, userData } = await loginService(email, password);
+    // 2FA disabled for now - always complete login (comment out to re-enable 2FA)
+    // if (userData.twoFactor?.enabled && userData.twoFactor?.method === "email") {
+    //   setPending2FA({ firebaseUser, adminData: userData });
+    //   setUser(null);
+    //   try {
+    //     const requestOtp = httpsCallable(functions, "requestEmailOtp");
+    //     await requestOtp();
+    //   } catch (error) { console.error("Error requesting OTP:", error); }
+    // } else {
+    setUser({ firebaseUser, adminData: userData });
+    setPending2FA(null);
+    // }
+    return userData;
+  };
+
+  const getUserData = async (userId: string) => {
+    return await getAdminUserData(userId);
+  };
+
+  const completeLogin = async (firebaseUser: FirebaseUser, adminData: AdminUserData) => {
+    setUser({ firebaseUser, adminData });
+    setPending2FA(null);
+  };
+
+  const completeTwoFactor = async (code: string) => {
+    if (!pending2FA) {
+      throw new Error("No pending 2FA verification");
+    }
+
     try {
-      const { user: firebaseUser, userData } = await loginService(email, password, role);
-      setUser({
-        firebaseUser,
-        adminData: userData,
-      });
+      const verifyOtp = httpsCallable(functions, "verifyEmailOtp");
+      await verifyOtp({ code });
+
+      // Success - promote pending2FA to user
+      setUser(pending2FA);
+      setPending2FA(null);
     } catch (error: any) {
-      console.error("Login error:", error);
-      throw error;
+      console.error("Error verifying OTP:", error);
+      throw new Error(error.message || "Failed to verify code");
+    }
+  };
+
+  const requestTwoFactorCode = async () => {
+    if (!pending2FA) {
+      throw new Error("No pending 2FA verification");
+    }
+
+    try {
+      const requestOtp = httpsCallable<void, { success: boolean; email: string }>(functions, "requestEmailOtp");
+      const result = await requestOtp();
+      return { email: result.data.email };
+    } catch (error: any) {
+      console.error("Error requesting OTP:", error);
+      throw new Error(error.message || "Failed to send verification code");
     }
   };
 
@@ -109,8 +147,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!user) {
       throw new Error("No user logged in");
     }
-    // TODO: Implement profile update in Firestore
-    // For now, just update local state
+    const allowedPatch = {
+      displayName: patch.displayName,
+      notificationPreferences: patch.notificationPreferences,
+      dashboardAlerts: patch.dashboardAlerts,
+      twoFactor: patch.twoFactor,
+    };
+    if (
+      allowedPatch.displayName !== undefined ||
+      allowedPatch.notificationPreferences !== undefined ||
+      allowedPatch.dashboardAlerts !== undefined ||
+      allowedPatch.twoFactor !== undefined
+    ) {
+      await updateAdminUserProfile(user.firebaseUser.uid, allowedPatch);
+    }
     setUser({
       ...user,
       adminData: { ...user.adminData, ...patch },
@@ -121,6 +171,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       await logoutService();
       setUser(null);
+      setPending2FA(null);
     } catch (error: any) {
       console.error("Logout error:", error);
       throw error;
@@ -128,8 +179,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const value = React.useMemo(
-    () => ({ user, loading, login, updateProfile, logout }),
-    [user, loading]
+    () => ({ user, pending2FA, loading, login, getUserData, completeLogin, completeTwoFactor, requestTwoFactorCode, updateProfile, logout }),
+    [user, pending2FA, loading]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

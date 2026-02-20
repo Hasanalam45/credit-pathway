@@ -2,27 +2,34 @@ import React, { useState } from "react";
 import SectionCard from "../shared/layout/SectionCard";
 import ToggleSwitch from "../shared/inputs/ToggleSwitch";
 import SettingsSection from "./SettingsSection";
+import { useAuth } from "../../auth/AuthProvider";
+import type { DashboardAlertsPreferences } from "../../services/authService";
 
-type NotificationToggle = {
-  id: string;
-  label: string;
-};
+const ALERT_ITEMS: { id: keyof DashboardAlertsPreferences; label: string }[] = [
+  { id: "systemFailure", label: "System Failure" },
+  { id: "newUserRegistration", label: "New User Registration" },
+  { id: "apiError", label: "API Error" },
+];
 
 const NotificationsSection: React.FC = () => {
-  const [toggles, setToggles] = useState<Record<string, boolean>>({
+  const { user, updateProfile } = useAuth();
+  const [saving, setSaving] = useState(false);
+
+  const dashboardAlerts: DashboardAlertsPreferences = user?.adminData?.dashboardAlerts ?? {
     systemFailure: true,
-    newUser: true,
-    apiError: false,
-  });
+    newUserRegistration: true,
+    apiError: true,
+  };
 
-  const items: NotificationToggle[] = [
-    { id: "systemFailure", label: "System Failure" },
-    { id: "newUser", label: "New User Registration" },
-    { id: "apiError", label: "API Error" },
-  ];
-
-  const handleToggle = (id: string, checked: boolean) => {
-    setToggles((prev) => ({ ...prev, [id]: checked }));
+  const handleToggle = async (id: keyof DashboardAlertsPreferences, checked: boolean) => {
+    setSaving(true);
+    try {
+      await updateProfile({
+        dashboardAlerts: { ...dashboardAlerts, [id]: checked },
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -32,17 +39,18 @@ const NotificationsSection: React.FC = () => {
         subtitle="Choose which notifications you want to receive."
       >
         <div className="space-y-4">
-          {items.map((item) => (
+          {ALERT_ITEMS.map((item) => (
             <div
               key={item.id}
               className="flex items-center justify-between gap-4"
             >
-              <span className="text-sm text-gray-900">
+              <span className="text-sm text-gray-900 dark:text-gray-100">
                 {item.label}
               </span>
               <ToggleSwitch
-                checked={toggles[item.id]}
+                checked={dashboardAlerts[item.id]}
                 onChange={(checked) => handleToggle(item.id, checked)}
+                disabled={saving}
               />
             </div>
           ))}

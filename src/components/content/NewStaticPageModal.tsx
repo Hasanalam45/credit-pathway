@@ -6,10 +6,14 @@ import SelectFilter from "../shared/inputs/SelectFilter";
 import Button from "../shared/buttons/Button";
 import type { MembershipTier, Visibility } from "./ContentTable";
 
-export type NewLessonValues = {
+export type NewStaticPageValues = {
   title: string;
+  slug: string;
   category: string;
   content: string;
+  previewContent?: string;
+  metaTitle?: string;
+  metaDescription?: string;
   visibility: Visibility;
   tier: MembershipTier;
 };
@@ -17,12 +21,12 @@ export type NewLessonValues = {
 type Props = {
   open: boolean;
   onClose: () => void;
-  onCreate: (values: NewLessonValues) => void;
-  initialValues?: NewLessonValues | null;
-  onUpdate?: (values: NewLessonValues) => void;
+  onCreate: (values: NewStaticPageValues) => void;
+  initialValues?: NewStaticPageValues | null;
+  onUpdate?: (values: NewStaticPageValues) => void;
 };
 
-const NewLessonModal: React.FC<Props> = ({
+const NewStaticPageModal: React.FC<Props> = ({
   open,
   onClose,
   onCreate,
@@ -30,8 +34,12 @@ const NewLessonModal: React.FC<Props> = ({
   onUpdate,
 }) => {
   const [title, setTitle] = useState("");
+  const [slug, setSlug] = useState("");
   const [category, setCategory] = useState("");
   const [content, setContent] = useState("");
+  const [previewContent, setPreviewContent] = useState("");
+  const [metaTitle, setMetaTitle] = useState("");
+  const [metaDescription, setMetaDescription] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("visible");
   const [tier, setTier] = useState<MembershipTier>("free");
   const [error, setError] = useState<string | null>(null);
@@ -39,8 +47,12 @@ const NewLessonModal: React.FC<Props> = ({
 
   const reset = () => {
     setTitle("");
+    setSlug("");
     setCategory("");
     setContent("");
+    setPreviewContent("");
+    setMetaTitle("");
+    setMetaDescription("");
     setVisibility("visible");
     setTier("free");
     setError(null);
@@ -49,8 +61,12 @@ const NewLessonModal: React.FC<Props> = ({
   React.useEffect(() => {
     if (open && initialValues) {
       setTitle(initialValues.title);
+      setSlug(initialValues.slug);
       setCategory(initialValues.category);
-      setContent(initialValues.content ?? "");
+      setContent(initialValues.content);
+      setPreviewContent(initialValues.previewContent || "");
+      setMetaTitle(initialValues.metaTitle || "");
+      setMetaDescription(initialValues.metaDescription || "");
       setVisibility(initialValues.visibility);
       setTier(initialValues.tier);
       setError(null);
@@ -60,17 +76,43 @@ const NewLessonModal: React.FC<Props> = ({
     }
   }, [open, initialValues]);
 
+  // Auto-generate slug from title
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newTitle = e.target.value;
+    setTitle(newTitle);
+    
+    // Only auto-generate slug if it hasn't been manually edited
+    if (!initialValues) {
+      const generatedSlug = newTitle
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      setSlug(generatedSlug);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !category.trim()) {
+    if (!title.trim() || !slug.trim() || !category.trim() || !content.trim()) {
       setError("Please fill in all required fields.");
       return;
     }
+    
+    // Validate slug format
+    if (!/^[a-z0-9-]+$/.test(slug)) {
+      setError("Slug can only contain lowercase letters, numbers, and hyphens.");
+      return;
+    }
+
     setSubmitting(true);
-    const payload: NewLessonValues = {
+    const payload: NewStaticPageValues = {
       title: title.trim(),
+      slug: slug.trim(),
       category: category.trim(),
       content: content.trim(),
+      previewContent: previewContent.trim() || undefined,
+      metaTitle: metaTitle.trim() || undefined,
+      metaDescription: metaDescription.trim() || undefined,
       visibility,
       tier,
     };
@@ -90,11 +132,11 @@ const NewLessonModal: React.FC<Props> = ({
         if (!onUpdate) reset();
         onClose();
       }}
-      title={onUpdate ? "Edit Lesson" : "New Lesson"}
+      title={onUpdate ? "Edit Static Page" : "New Static Page"}
       description={
         onUpdate
-          ? "Edit the lesson details and save changes."
-          : "Create a new lesson to pair with your articles or courses."
+          ? "Edit the static page details and save changes."
+          : "Create a new static page for the site."
       }
       size="lg"
       footer={
@@ -113,39 +155,50 @@ const NewLessonModal: React.FC<Props> = ({
           <Button
             size="sm"
             type="submit"
-            form="new-lesson-form"
+            form="new-static-page-form"
             disabled={submitting}
           >
-            {submitting ? (onUpdate ? "Saving..." : "Creating...") : onUpdate ? "Save Changes" : "Create Lesson"}
+            {submitting ? (onUpdate ? "Saving..." : "Creating...") : onUpdate ? "Save Changes" : "Create Page"}
           </Button>
         </>
       }
     >
       <form
-        id="new-lesson-form"
+        id="new-static-page-form"
         className="space-y-4"
         onSubmit={handleSubmit}
       >
         <TextInput
-          label="Lesson Title"
-          placeholder="e.g. Intro to Credit Basics"
+          label="Title"
+          placeholder="Page title"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={handleTitleChange}
         />
+        
+        <TextInput
+          label="Slug"
+          placeholder="about-us"
+          value={slug}
+          onChange={(e) => setSlug(e.target.value)}
+          helperText="URL-friendly identifier (lowercase, hyphens only)"
+        />
+
         <TextInput
           label="Category"
-          placeholder="e.g. Financial Basics"
+          placeholder="General"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
         />
+
         <Textarea
           label="Content"
-          placeholder="Write the lesson content here..."
+          placeholder="Full page content (HTML or Markdown supported)"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          rows={5}
-          className="min-h-[120px]"
+          rows={8}
+          className="min-h-[200px]"
         />
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <p className="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -185,6 +238,31 @@ const NewLessonModal: React.FC<Props> = ({
           </div>
         </div>
 
+        <Textarea
+          label="Preview content"
+          placeholder="Short preview or excerpt"
+          value={previewContent}
+          onChange={(e) => setPreviewContent(e.target.value)}
+          rows={3}
+          className="min-h-[80px]"
+        />
+
+        <TextInput
+          label="Meta title (optional)"
+          placeholder="SEO meta title"
+          value={metaTitle}
+          onChange={(e) => setMetaTitle(e.target.value)}
+        />
+
+        <Textarea
+          label="Meta description (optional)"
+          placeholder="SEO meta description"
+          value={metaDescription}
+          onChange={(e) => setMetaDescription(e.target.value)}
+          rows={2}
+          className="min-h-[60px]"
+        />
+
         {error && (
           <p className="pt-1 text-sm text-red-500">{error}</p>
         )}
@@ -193,4 +271,4 @@ const NewLessonModal: React.FC<Props> = ({
   );
 };
 
-export default NewLessonModal;
+export default NewStaticPageModal;

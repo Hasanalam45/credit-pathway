@@ -1,0 +1,49 @@
+// Add these rules to your firestore.rules file
+
+// Admin Notifications Collection
+match /admin_notifications/{notificationId} {
+  // Allow any authenticated user (including mobile app users) to create notifications
+  // This allows the mobile app to notify admins about events
+  allow create: if request.auth != null;
+  
+  // Only admins can read notifications
+  // Check if the user exists in adminUsers collection
+  allow read: if request.auth != null && 
+    exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid));
+  
+  // Only admins can update notifications (mark as read)
+  allow update: if request.auth != null && 
+    exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid));
+  
+  // Only admins can delete notifications
+  allow delete: if request.auth != null && 
+    exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid));
+}
+
+// Complete example of firestore.rules file structure:
+/*
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Admin Users Collection
+    match /adminUsers/{adminId} {
+      allow read, write: if request.auth != null && request.auth.uid == adminId;
+    }
+    
+    // Users Collection
+    match /users/{userId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Admin Notifications Collection
+    match /admin_notifications/{notificationId} {
+      allow create: if request.auth != null;
+      allow read, update, delete: if request.auth != null && 
+        exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid));
+    }
+    
+    // Add your other collection rules here...
+  }
+}
+*/

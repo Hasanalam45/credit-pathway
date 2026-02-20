@@ -5,9 +5,9 @@ import { useAuth } from "../auth/AuthProvider";
 import Logo from "../components/shared/Logo";
 
 const LoginPage: FC = () => {
-  const { user } = useAuth();
+  const { user, pending2FA } = useAuth();
 
-  if (user) {
+  if (user && !pending2FA) {
     return <Navigate to="/" replace />;
   }
 

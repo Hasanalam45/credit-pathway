@@ -6,10 +6,11 @@ import SelectFilter from "../shared/inputs/SelectFilter";
 import Button from "../shared/buttons/Button";
 import type { MembershipTier, Visibility } from "./ContentTable";
 
-export type NewLessonValues = {
+export type NewLinkValues = {
   title: string;
   category: string;
-  content: string;
+  url: string;
+  description?: string;
   visibility: Visibility;
   tier: MembershipTier;
 };
@@ -17,12 +18,12 @@ export type NewLessonValues = {
 type Props = {
   open: boolean;
   onClose: () => void;
-  onCreate: (values: NewLessonValues) => void;
-  initialValues?: NewLessonValues | null;
-  onUpdate?: (values: NewLessonValues) => void;
+  onCreate: (values: NewLinkValues) => void;
+  initialValues?: NewLinkValues | null;
+  onUpdate?: (values: NewLinkValues) => void;
 };
 
-const NewLessonModal: React.FC<Props> = ({
+const NewLinkModal: React.FC<Props> = ({
   open,
   onClose,
   onCreate,
@@ -31,7 +32,8 @@ const NewLessonModal: React.FC<Props> = ({
 }) => {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("");
-  const [content, setContent] = useState("");
+  const [url, setUrl] = useState("");
+  const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("visible");
   const [tier, setTier] = useState<MembershipTier>("free");
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +42,8 @@ const NewLessonModal: React.FC<Props> = ({
   const reset = () => {
     setTitle("");
     setCategory("");
-    setContent("");
+    setUrl("");
+    setDescription("");
     setVisibility("visible");
     setTier("free");
     setError(null);
@@ -50,7 +53,8 @@ const NewLessonModal: React.FC<Props> = ({
     if (open && initialValues) {
       setTitle(initialValues.title);
       setCategory(initialValues.category);
-      setContent(initialValues.content ?? "");
+      setUrl(initialValues.url);
+      setDescription(initialValues.description || "");
       setVisibility(initialValues.visibility);
       setTier(initialValues.tier);
       setError(null);
@@ -62,15 +66,25 @@ const NewLessonModal: React.FC<Props> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !category.trim()) {
+    if (!title.trim() || !category.trim() || !url.trim()) {
       setError("Please fill in all required fields.");
       return;
     }
+    
+    // Basic URL validation
+    try {
+      new URL(url);
+    } catch {
+      setError("Please enter a valid URL (e.g., https://example.com)");
+      return;
+    }
+
     setSubmitting(true);
-    const payload: NewLessonValues = {
+    const payload: NewLinkValues = {
       title: title.trim(),
       category: category.trim(),
-      content: content.trim(),
+      url: url.trim(),
+      description: description.trim() || undefined,
       visibility,
       tier,
     };
@@ -90,11 +104,11 @@ const NewLessonModal: React.FC<Props> = ({
         if (!onUpdate) reset();
         onClose();
       }}
-      title={onUpdate ? "Edit Lesson" : "New Lesson"}
+      title={onUpdate ? "Edit Resource Link" : "New Resource Link"}
       description={
         onUpdate
-          ? "Edit the lesson details and save changes."
-          : "Create a new lesson to pair with your articles or courses."
+          ? "Edit the resource link details and save changes."
+          : "Add a credit resource link."
       }
       size="lg"
       footer={
@@ -113,39 +127,40 @@ const NewLessonModal: React.FC<Props> = ({
           <Button
             size="sm"
             type="submit"
-            form="new-lesson-form"
+            form="new-link-form"
             disabled={submitting}
           >
-            {submitting ? (onUpdate ? "Saving..." : "Creating...") : onUpdate ? "Save Changes" : "Create Lesson"}
+            {submitting ? (onUpdate ? "Saving..." : "Creating...") : onUpdate ? "Save Changes" : "Create Link"}
           </Button>
         </>
       }
     >
       <form
-        id="new-lesson-form"
+        id="new-link-form"
         className="space-y-4"
         onSubmit={handleSubmit}
       >
         <TextInput
-          label="Lesson Title"
-          placeholder="e.g. Intro to Credit Basics"
+          label="Title"
+          placeholder="e.g. Federal Student Aid"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
         <TextInput
           label="Category"
-          placeholder="e.g. Financial Basics"
+          placeholder="e.g. Student Loans"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
         />
-        <Textarea
-          label="Content"
-          placeholder="Write the lesson content here..."
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          rows={5}
-          className="min-h-[120px]"
+
+        <TextInput
+          label="URL"
+          placeholder="https://example.com"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          type="url"
         />
+
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <p className="mb-1 text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -185,6 +200,15 @@ const NewLessonModal: React.FC<Props> = ({
           </div>
         </div>
 
+        <Textarea
+          label="Short description (optional)"
+          placeholder="A short summary of the resource"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+          className="min-h-[80px]"
+        />
+
         {error && (
           <p className="pt-1 text-sm text-red-500">{error}</p>
         )}
@@ -193,4 +217,4 @@ const NewLessonModal: React.FC<Props> = ({
   );
 };
 
-export default NewLessonModal;
+export default NewLinkModal;

@@ -128,11 +128,32 @@ export const getEducationContent = async (): Promise<ContentItem[]> => {
 export const createEducationContent = async (values: {
   title: string;
   category: string;
+  videoUrl?: string;
+  thumbnailUrl?: string;
+  duration?: string;
   visibility: Visibility;
   tier: MembershipTier;
 }): Promise<string> => {
   try {
     const educationContentRef = collection(firestore, "educationContent");
+    
+    // Parse duration to decimal minutes
+    let durationMinutes = 0;
+    if (values.duration) {
+      const parts = values.duration.trim().split(":");
+      if (parts.length === 2) {
+        // Format: MM:SS
+        const minutes = parseInt(parts[0], 10) || 0;
+        const seconds = parseInt(parts[1], 10) || 0;
+        durationMinutes = parseFloat((minutes + (seconds / 60)).toFixed(2));
+      } else if (parts.length === 3) {
+        // Format: HH:MM:SS
+        const hours = parseInt(parts[0], 10) || 0;
+        const minutes = parseInt(parts[1], 10) || 0;
+        const seconds = parseInt(parts[2], 10) || 0;
+        durationMinutes = parseFloat(((hours * 60) + minutes + (seconds / 60)).toFixed(2));
+      }
+    }
     
     // Prepare education content data for Firestore
     const educationContentData = {
@@ -141,14 +162,15 @@ export const createEducationContent = async (values: {
       visibility: values.visibility,
       requiredTier: values.tier,
       publishedAt: Timestamp.now(),
+      // Video-specific fields
+      videoUrl: values.videoUrl?.trim() || "",
+      thumbnailUrl: values.thumbnailUrl?.trim() || "",
+      durationMinutes: durationMinutes,
       // Required fields with defaults
-      authorName: "Paramount Credit Pathway", // Default author
-      coverImageUrl: "",
-      durationMinutes: 0,
+      authorName: "Paramount Credit Pathway",
+      coverImageUrl: values.thumbnailUrl?.trim() || "",
       presentedBy: "Paramount Credit Pathway",
       shortDescription: "",
-      thumbnailUrl: "",
-      videoUrl: "", // Will need to be set separately or via additional form fields
     };
     
     // Add document to Firestore
@@ -170,6 +192,9 @@ export const updateEducationContent = async (
   values: {
     title: string;
     category: string;
+    videoUrl?: string;
+    thumbnailUrl?: string;
+    duration?: string;
     visibility: Visibility;
     tier: MembershipTier;
   }
@@ -177,14 +202,42 @@ export const updateEducationContent = async (
   try {
     const educationContentRef = doc(firestore, "educationContent", id);
     
+    // Parse duration to decimal minutes if provided
+    let durationMinutes: number | undefined;
+    if (values.duration) {
+      const parts = values.duration.trim().split(":");
+      if (parts.length === 2) {
+        const minutes = parseInt(parts[0], 10) || 0;
+        const seconds = parseInt(parts[1], 10) || 0;
+        durationMinutes = parseFloat((minutes + (seconds / 60)).toFixed(2));
+      } else if (parts.length === 3) {
+        const hours = parseInt(parts[0], 10) || 0;
+        const minutes = parseInt(parts[1], 10) || 0;
+        const seconds = parseInt(parts[2], 10) || 0;
+        durationMinutes = parseFloat(((hours * 60) + minutes + (seconds / 60)).toFixed(2));
+      }
+    }
+    
     // Prepare update data (only update the fields that can be changed)
-    const updateData = {
+    const updateData: any = {
       title: values.title.trim(),
       sectionLabel: values.category.trim(),
       visibility: values.visibility,
       requiredTier: values.tier,
-      updatedAt: Timestamp.now(), // Add updatedAt timestamp
+      updatedAt: Timestamp.now(),
     };
+    
+    // Add optional fields if provided
+    if (values.videoUrl) {
+      updateData.videoUrl = values.videoUrl.trim();
+    }
+    if (values.thumbnailUrl) {
+      updateData.thumbnailUrl = values.thumbnailUrl.trim();
+      updateData.coverImageUrl = values.thumbnailUrl.trim();
+    }
+    if (durationMinutes !== undefined) {
+      updateData.durationMinutes = durationMinutes;
+    }
     
     await updateDoc(educationContentRef, updateData);
     

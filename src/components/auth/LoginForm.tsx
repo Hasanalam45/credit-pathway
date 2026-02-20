@@ -2,14 +2,18 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../auth/AuthProvider";
 import Button from "../shared/buttons/Button";
+import OTPVerificationForm from "./OTPVerificationForm";
+import { requestEmailOTP } from "../../services/twoFactorAuthService";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth as firebaseAuth } from "../../config/firebase";
 
 const LoginForm: React.FC = () => {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [role, setRole] = React.useState<"superadmin" | "support">("superadmin");
   const [error, setError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
+  const [showOTPScreen, setShowOTPScreen] = React.useState(false);
 
   const auth = useAuth();
   const navigate = useNavigate();
@@ -30,19 +34,101 @@ const LoginForm: React.FC = () => {
 
     setSubmitting(true);
     try {
-      await auth.login(email.trim(), password, role);
-      // Navigate based on selected role
-      navigate(role === "support" ? "/support" : "/");
-    } catch (err: any) {
+      // First, authenticate with Firebase Auth to get user credentials
+      const userCredential = await signInWithEmailAndPassword(
+        firebaseAuth,
+        email.trim().toLowerCase(),
+        password
+      );
+      
+      // Get user data to check if 2FA is enabled
+      const userData = await auth.getUserData(userCredential.user.uid);
+      
+      if (!userData) {
+        throw new Error("Admin account not found");
+      }
+
+      // Check if 2FA is enabled
+      if (userData.twoFactor?.enabled && userData.twoFactor?.method === "email") {
+        // Request OTP code
+        try {
+          await requestEmailOTP();
+          setShowOTPScreen(true);
+        } catch (otpError: any) {
+          console.error("Error requesting OTP:", otpError);
+          setError(otpError.message || "Failed to send verification code");
+          // Sign out if OTP request fails
+          await firebaseAuth.signOut();
+        }
+      } else {
+        // No 2FA - complete login directly
+        await auth.completeLogin(userCredential.user, userData);
+        navigate(userData.role === "support" ? "/support" : "/");
+      }
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.message || "Login failed. Please try again.");
+      const error = err as any;
+      
+      if (error.code === "auth/user-not-found") {
+        setError("No account found with this email address.");
+      } else if (error.code === "auth/wrong-password") {
+        setError("Incorrect password. Please try again.");
+      } else if (error.code === "auth/invalid-email") {
+        setError("Invalid email address format.");
+      } else if (error.code === "auth/user-disabled") {
+        setError("This account has been disabled. Please contact support.");
+      } else if (error.code === "auth/too-many-requests") {
+        setError("Too many failed login attempts. Please try again later.");
+      } else {
+        setError(error.message || "Login failed. Please try again.");
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleOTPVerified = async () => {
+    try {
+      // Get current user
+      const currentUser = firebaseAuth.currentUser;
+      if (!currentUser) {
+        throw new Error("Session expired. Please log in again.");
+      }
+
+      // Get user data
+      const userData = await auth.getUserData(currentUser.uid);
+      if (!userData) {
+        throw new Error("Admin account not found");
+      }
+
+      // Complete login
+      await auth.completeLogin(currentUser, userData);
+      navigate(userData.role === "support" ? "/support" : "/");
+    } catch (err: any) {
+      console.error("Error completing login:", err);
+      setError(err.message || "Login failed. Please try again.");
+      setShowOTPScreen(false);
+      await firebaseAuth.signOut();
+    }
+  };
+
+  const handleBackToLogin = async () => {
+    setShowOTPScreen(false);
+    setPassword("");
+    // Sign out to clear the session
+    await firebaseAuth.signOut();
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-5">
+    <>
+      {showOTPScreen ? (
+        <OTPVerificationForm
+          email={email}
+          onVerified={handleOTPVerified}
+          onBack={handleBackToLogin}
+        />
+      ) : (
+        <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-5">
       {/* EMAIL */}
       <div className="group">
         <label className="block text-xs font-semibold tracking-wide text-gray-600 dark:text-gray-300">
@@ -106,36 +192,6 @@ const LoginForm: React.FC = () => {
         </div>
       </div>
 
-      {/* ROLE */}
-      <div className="group">
-        <label className="block text-xs font-semibold tracking-wide text-gray-600 dark:text-gray-300">
-          Role
-        </label>
-        <div className="mt-1 relative">
-          <select
-            value={role}
-            onChange={(e) =>
-              setRole(e.target.value as "superadmin" | "support")
-            }
-            className="
-              block w-full appearance-none rounded-xl border border-gray-200
-              bg-white/90 px-3.5 py-2.5 text-sm text-gray-800 shadow-sm transition
-              focus:border-amber-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-amber-200/50
-              group-hover:border-gray-300
-              dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-100
-              dark:focus:border-amber-350 dark:focus:ring-amber-400/20
-            "
-          >
-            <option value="superadmin">Super Admin</option>
-            <option value="support">Support Team</option>
-          </select>
-
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">
-            ▾
-          </span>
-        </div>
-      </div>
-
       {/* ERROR */}
       {error && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200">
@@ -160,6 +216,8 @@ const LoginForm: React.FC = () => {
         </div>
       </div>
     </form>
+      )}
+    </>
   );
 };
 
